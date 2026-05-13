@@ -7,4 +7,5 @@ idf_component_register(
         device_key                  # our v1 root-of-trust component
         bip39_bip32                 # BIP-39 mnemonic + BIP-32/ETH address derivation
         eth_tx                      # Ethereum tx / message signing (keccak256 + ECDSA)
+        wallet_proto                # wire protocol frame parse/build + dispatcher
 )

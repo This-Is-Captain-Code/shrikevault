@@ -30,6 +30,7 @@
 #include "device_key.h"
 #include "wallet_keys.h"
 #include "eth_tx.h"
+#include "wallet_proto.h"
 
 static const char *TAG = "shrikevault";
 
@@ -238,6 +239,37 @@ static int cmd_sign_eth(int argc, char **argv)
     return 0;
 }
 
+/* ------------------------- console: wallet_req -------------------------
+ * Tunnels the wallet wire protocol over the console for now (TinyUSB-CDC
+ * comes later). Usage:  wallet_req <hex>
+ * Response is printed on a single line bracketed by sentinels:
+ *   <wallet_rsp:HEXSTRING>
+ * The host CLI parses lines matching that exact regex. */
+
+static int cmd_wallet_req(int argc, char **argv)
+{
+    if (argc < 2) { printf("usage: wallet_req <hex-frame>\n"); return 1; }
+    enum { BUF = WP_FRAME_MAX };
+    uint8_t *req = (uint8_t *)malloc(BUF);
+    uint8_t *rsp = (uint8_t *)malloc(BUF);
+    if (!req || !rsp) { free(req); free(rsp); printf("oom\n"); return 1; }
+
+    int rl = hex_to_bytes(argv[1], req, BUF);
+    if (rl < 0) { free(req); free(rsp); printf("bad hex\n"); return 1; }
+
+    size_t rsp_len = 0;
+    esp_err_t err = wallet_proto_dispatch(req, (size_t)rl, rsp, BUF, &rsp_len);
+    if (err != ESP_OK) {
+        printf("dispatch error: %s\n", esp_err_to_name(err));
+        free(req); free(rsp); return 1;
+    }
+    printf("<wallet_rsp:");
+    for (size_t i = 0; i < rsp_len; i++) printf("%02x", rsp[i]);
+    printf(">\n");
+    free(req); free(rsp);
+    return 0;
+}
+
 /* ------------------------- console: info -------------------------------- */
 
 static int cmd_info(int argc, char **argv)
@@ -264,6 +296,7 @@ static void register_commands(void)
         { .command = "addr",          .help = "Derive an ETH address at m/44'/60'/0'/0/<index>  (default index=0)", .func = &cmd_addr },
         { .command = "sign_digest",   .help = "Sign a 32-byte digest:  sign_digest <key_idx> <hex>",                .func = &cmd_sign_digest },
         { .command = "sign_eth",      .help = "keccak256(msg) then sign: sign_eth <key_idx> <unsigned-msg-hex>",     .func = &cmd_sign_eth },
+        { .command = "wallet_req",    .help = "Dispatch a wire-protocol frame: wallet_req <hex-frame>",                .func = &cmd_wallet_req },
     };
     for (size_t i = 0; i < sizeof(cmds) / sizeof(cmds[0]); i++) {
         ESP_ERROR_CHECK(esp_console_cmd_register(&cmds[i]));
@@ -281,7 +314,10 @@ void app_main(void)
     esp_console_repl_t *repl = NULL;
     esp_console_repl_config_t repl_cfg = ESP_CONSOLE_REPL_CONFIG_DEFAULT();
     repl_cfg.prompt = "shrikevault> ";
-    repl_cfg.max_cmdline_length = 256;
+    /* big enough for "wallet_req " + hex-encoded WP_FRAME_MAX (≤4106 B → 8212 hex chars). */
+    repl_cfg.max_cmdline_length = 9000;
+    /* BIP-32 derivation + ECDSA signing on the console task — default 4 KB is too small. */
+    repl_cfg.task_stack_size = 16384;
     esp_console_dev_usb_serial_jtag_config_t hw = ESP_CONSOLE_DEV_USB_SERIAL_JTAG_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_console_new_repl_usb_serial_jtag(&hw, &repl_cfg, &repl));
     esp_console_register_help_command();
