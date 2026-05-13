@@ -1,0 +1,28 @@
+# ShrikeVault bring-up — sane defaults. (P0 is a DEBUG build: no Secure Boot /
+# Flash Encryption here — those land in the release sdkconfig in P5.)
+
+CONFIG_IDF_TARGET="esp32s3"
+
+# --- Console over the ESP32-S3 built-in USB Serial/JTAG (the device that
+#     enumerates as COM19). No external UART adapter needed. ---
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
+CONFIG_ESP_CONSOLE_SECONDARY_NONE=y
+
+# --- Flash: Shrike-Fi has 8 MB QSPI ---
+CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y
+CONFIG_ESPTOOLPY_FLASHSIZE="8MB"
+CONFIG_PARTITION_TABLE_SINGLE_APP_LARGE=y
+
+# --- Base Shrike-Fi has NO PSRAM (optional add-on). Keep it off so the build
+#     reflects the stock board; flip this if you soldered the PSRAM option. ---
+# CONFIG_SPIRAM=y
+
+# --- Logging ---
+CONFIG_LOG_DEFAULT_LEVEL_INFO=y
+CONFIG_LOG_COLORS=y
+
+# --- A little more main-task stack for the console + FPGA streaming buffer ---
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=6144
+
+# --- FreeRTOS tick at 1 kHz so vTaskDelay(1ms) is actually ~1 ms (FPGA timing) ---
+CONFIG_FREERTOS_HZ=1000

@@ -1,0 +1,40 @@
+# shrikevault — DEBUG defaults (release build adds Secure Boot v2 + Flash
+# Encryption + encrypted NVS + anti-rollback in a separate sdkconfig.release
+# layer in P4).
+
+CONFIG_IDF_TARGET="esp32s3"
+
+# Console over the built-in USB Serial/JTAG (the device that enumerates as a COM
+# port). TinyUSB CDC-ACM for the wallet wire protocol comes online later in P3.
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
+CONFIG_ESP_CONSOLE_SECONDARY_NONE=y
+
+# Shrike-Fi has 8 MB QSPI flash. Use a 3-app-slot partition table so we can
+# host bootloader + factory app + 2 OTA slots (anti-rollback friendly).
+CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y
+CONFIG_ESPTOOLPY_FLASHSIZE="8MB"
+CONFIG_PARTITION_TABLE_SINGLE_APP_LARGE=y
+
+# Base Shrike-Fi has no PSRAM (optional add-on); keep it off so the build
+# reflects stock hardware.
+# CONFIG_SPIRAM=y
+
+# NVS — encrypted in release builds (P4); plain in debug for development sanity.
+# Plain NVS is fine for debug because we use a *throwaway* device_key during
+# development (rotated frequently) — never put real funds on a debug build.
+# CONFIG_NVS_ENCRYPTION=y                  # enabled in sdkconfig.release
+
+# Larger main task stack — BIP-32 derivation + secp256k1 ops are stack-hungry.
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=8192
+
+# 1 kHz tick → vTaskDelay(1ms) ≈ 1 ms (signing timing).
+CONFIG_FREERTOS_HZ=1000
+
+# Logs
+CONFIG_LOG_DEFAULT_LEVEL_INFO=y
+CONFIG_LOG_COLORS=y
+
+# Disable WiFi & Bluetooth init by default — v1 firmware does not use the radios
+# at all (out-of-scope per the threat model). Save flash + reduce attack surface.
+CONFIG_BT_ENABLED=n
+# (WiFi is not started unless we call esp_wifi_init; nothing to disable here.)
