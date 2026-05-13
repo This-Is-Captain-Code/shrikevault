@@ -28,6 +28,7 @@
 #include "esp_chip_info.h"
 
 #include "device_key.h"
+#include "wallet_keys.h"
 
 static const char *TAG = "shrikevault";
 
@@ -83,6 +84,57 @@ static int cmd_dk_wipe(int argc, char **argv)
     return 0;
 }
 
+/* ------------------------- console: show_mnemonic ----------------------- */
+
+static int cmd_show_mnemonic(int argc, char **argv)
+{
+    if (!device_key_provisioned()) {
+        printf("no device key yet — run 'dk_provision' first.\n");
+        return 1;
+    }
+    if (argc < 2 || strcmp(argv[1], "CONFIRM") != 0) {
+        printf("This shows your 24-word BIP-39 mnemonic on the console.\n");
+        printf("ANYONE with the words has full access to your funds.\n");
+        printf("Type:  show_mnemonic CONFIRM   if you're ready to write them down.\n");
+        return 1;
+    }
+    char mnemonic[WALLET_MNEMONIC_MAX];
+    esp_err_t err = wallet_derive_mnemonic(mnemonic);
+    if (err != ESP_OK) { printf("derive failed: %s\n", esp_err_to_name(err)); return 1; }
+
+    printf("\n========== BIP-39 MNEMONIC (write this down, then never share it) ==========\n\n");
+    /* Print as numbered 4-column grid for legibility. */
+    char *saveptr = NULL;
+    char *tok = strtok_r(mnemonic, " ", &saveptr);
+    int i = 1;
+    while (tok) {
+        printf("  %2d. %-10s", i, tok);
+        if (i % 4 == 0) printf("\n");
+        tok = strtok_r(NULL, " ", &saveptr);
+        i++;
+    }
+    if ((i - 1) % 4 != 0) printf("\n");
+    printf("\n============================================================================\n");
+    device_key_memzero(mnemonic, sizeof(mnemonic));
+    return 0;
+}
+
+/* ------------------------- console: addr -------------------------------- */
+
+static int cmd_addr(int argc, char **argv)
+{
+    if (!device_key_provisioned()) {
+        printf("no device key yet — run 'dk_provision' first.\n");
+        return 1;
+    }
+    uint32_t index = (argc >= 2) ? (uint32_t)strtoul(argv[1], NULL, 10) : 0;
+    char addr[WALLET_ETH_ADDR_LEN];
+    esp_err_t err = wallet_get_eth_address(index, addr);
+    if (err != ESP_OK) { printf("derive failed: %s\n", esp_err_to_name(err)); return 1; }
+    printf("m/44'/60'/0'/0/%lu  ->  %s\n", (unsigned long)index, addr);
+    return 0;
+}
+
 /* ------------------------- console: info -------------------------------- */
 
 static int cmd_info(int argc, char **argv)
@@ -105,6 +157,8 @@ static void register_commands(void)
         { .command = "dk_status",     .help = "Show whether the device key is provisioned + fingerprint", .func = &cmd_dk_status },
         { .command = "dk_provision",  .help = "First-init: create the 256-bit device key from HW RNG",  .func = &cmd_dk_provision },
         { .command = "dk_wipe",       .help = "DESTRUCTIVE: erase the device key  (usage: dk_wipe CONFIRM)", .func = &cmd_dk_wipe },
+        { .command = "show_mnemonic", .help = "Show the 24-word BIP-39 mnemonic  (usage: show_mnemonic CONFIRM)", .func = &cmd_show_mnemonic },
+        { .command = "addr",          .help = "Derive an ETH address at m/44'/60'/0'/0/<index>  (default index=0)", .func = &cmd_addr },
     };
     for (size_t i = 0; i < sizeof(cmds) / sizeof(cmds[0]); i++) {
         ESP_ERROR_CHECK(esp_console_cmd_register(&cmds[i]));

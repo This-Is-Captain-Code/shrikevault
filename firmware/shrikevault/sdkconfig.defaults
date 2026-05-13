@@ -34,6 +34,10 @@ CONFIG_FREERTOS_HZ=1000
 CONFIG_LOG_DEFAULT_LEVEL_INFO=y
 CONFIG_LOG_COLORS=y
 
+# mbedTLS: enable HKDF (off by default in ESP-IDF's bundled mbedtls). Used by
+# the bip39_bip32 component to derive BIP-39 entropy from the device_key.
+CONFIG_MBEDTLS_HKDF_C=y
+
 # Disable WiFi & Bluetooth init by default — v1 firmware does not use the radios
 # at all (out-of-scope per the threat model). Save flash + reduce attack surface.
 CONFIG_BT_ENABLED=n
