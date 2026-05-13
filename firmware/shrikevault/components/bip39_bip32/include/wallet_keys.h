@@ -45,3 +45,22 @@ esp_err_t wallet_derive_mnemonic(char out[WALLET_MNEMONIC_MAX]);
  * NUL-terminated EIP-55 checksummed "0x..." hex string into out_addr. The
  * private key never leaves this function. */
 esp_err_t wallet_get_eth_address(uint32_t index, char out_addr[WALLET_ETH_ADDR_LEN]);
+
+/* Sign a 32-byte digest with the private key at m/44'/60'/0'/0/<index>.
+ *
+ * Output layout (65 bytes):
+ *   out_sig[ 0..31]  r           (big-endian)
+ *   out_sig[32..63]  s           (big-endian, low-s normalised per EIP-2)
+ *   out_sig[64]      recovery_id (0 or 1)
+ *
+ * Signing uses RFC-6979 deterministic nonces — same digest + same key always
+ * produces the same signature, no RNG on the signing path.
+ *
+ * The caller turns recovery_id into the chain-specific `v`:
+ *   legacy / EIP-155 :  v = chain_id * 2 + 35 + recovery_id
+ *   EIP-1559 / 2930  :  v = recovery_id            (i.e. yParity, 0 or 1)
+ *   personal_sign    :  v = 27 + recovery_id
+ *
+ * The private key is derived from the device_key on each call, used, and
+ * zeroed before return; it never persists. */
+esp_err_t wallet_sign_digest(uint32_t index, const uint8_t digest[32], uint8_t out_sig[65]);

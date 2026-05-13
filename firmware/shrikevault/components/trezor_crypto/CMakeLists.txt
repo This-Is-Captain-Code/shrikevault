@@ -31,6 +31,8 @@ idf_component_register(
         # Big-number + EC math
         "bignum.c"
         "ecdsa.c"
+        "rfc6979.c"          # init_rfc6979 / generate_k_rfc6979 — used by ecdsa.c's sign_digest
+        "hmac_drbg.c"        # HMAC_DRBG — used by rfc6979.c
         "secp256k1.c"
         "nist256p1.c"        # bip32.c's get_curve_by_name() references &nist256p1_info — link-time only
 
